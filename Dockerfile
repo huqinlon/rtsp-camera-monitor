@@ -36,11 +36,10 @@ FROM base AS python-deps
 RUN pip3 install --no-cache-dir --break-system-packages --upgrade pip setuptools wheel
 
 # 安装 Python 依赖
-# 先尝试从 requirements.txt 安装，如果失败则使用无版本约束安装
 COPY requirements.txt /tmp/requirements.txt
-RUN pip3 install --no-cache-dir --break-system-packages -r /tmp/requirements.txt 2>/dev/null || \
-    pip3 install --no-cache-dir --break-system-packages \
-    apscheduler>=3.10 flask>=3.0 requests>=2.31 Pillow>=10 psutil>=5.9
+# hadolint ignore=DL3013
+RUN pip3 install --no-cache-dir --break-system-packages --upgrade pip && \
+    pip3 install --no-cache-dir --break-system-packages -r /tmp/requirements.txt
 
 # -----------------------------
 # 最终镜像构建

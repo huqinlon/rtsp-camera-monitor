@@ -31,6 +31,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # -----------------------------
 FROM base AS python-deps
 
+# 升级 pip
+RUN pip3 install --no-cache-dir --break-system-packages --upgrade pip setuptools wheel
+
 # 安装 Python 依赖
 COPY requirements.txt /tmp/requirements.txt
 RUN pip3 install --no-cache-dir --break-system-packages -r /tmp/requirements.txt

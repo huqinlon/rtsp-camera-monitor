@@ -29,7 +29,7 @@ test_*.py
 *.test.py
 
 # 文档
-*.md
+# *.md
 docs/
 
 # Docker相关（避免循环引用）

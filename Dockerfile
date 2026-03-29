@@ -3,18 +3,15 @@
 # 支持 ARM64 (arm64/v8) 和 AMD64 (amd64) 架构
 # ============================================
 
-# -----------------------------
-# 基础阶段：使用官方 Python 镜像
-# -----------------------------
-FROM python:3.11-slim-bookworm AS base
+FROM python:3.11-slim-bookworm
 
 # 防止交互式安装提示
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
 ENV PIP_NO_CACHE_DIR=1
+ENV PIP_TIMEOUT=300
 
-# 安装基础系统工具
-# hadolint ignore=DL3008
+# 安装基础系统工具和 Python 依赖
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     curl \
@@ -25,26 +22,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libjpeg-dev \
     zlib1g-dev \
     libpng-dev \
+    libopenjp2-7 \
+    libtiff5 \
+    libwebp-dev \
     && rm -rf /var/lib/apt/lists/* \
     && useradd -m -s /bin/bash camera
 
-# -----------------------------
-# Python 依赖阶段
-# -----------------------------
-FROM base AS python-deps
-
-# 安装 Python 依赖
+# 安装 Python 依赖（使用宽松版本约束）
 COPY requirements.txt /tmp/requirements.txt
-RUN pip install --no-cache-dir -r /tmp/requirements.txt
-
-# -----------------------------
-# 最终镜像构建
-# -----------------------------
-FROM base AS runtime
-
-# 复制 Python 依赖
-COPY --from=python-deps /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-COPY --from=python-deps /usr/local/bin /usr/local/bin
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r /tmp/requirements.txt || \
+    pip install --no-cache-dir -r /tmp/requirements.txt --prefer-binary || \
+    pip install --no-cache-dir -r /tmp/requirements.txt --no-build-isolation
 
 # 创建应用目录
 RUN mkdir -p /app/modules /app/templates /app/data/logs /app/data/screenshots /app/data/videos /app/data/lowfps /app/data/temp

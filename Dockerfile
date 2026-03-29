@@ -31,19 +31,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # -----------------------------
 FROM base AS python-deps
 
-# 安装 Python 依赖 - 使用更兼容的方式
+# 使用虚拟环境安装 Python 依赖，避免系统包冲突
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# 安装 Python 依赖
 COPY requirements.txt /tmp/requirements.txt
-RUN pip3 install --no-cache-dir -r /tmp/requirements.txt || \
-    pip install --no-cache-dir -r /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
 # -----------------------------
 # 最终镜像构建
 # -----------------------------
 FROM base AS runtime
 
-# 复制 Python 依赖
-COPY --from=python-deps /usr/local/lib/python3.11/dist-packages /usr/local/lib/python3.11/dist-packages
-COPY --from=python-deps /usr/local/bin /usr/local/bin
+# 复制 Python 虚拟环境
+COPY --from=python-deps /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
 # 创建应用目录
 RUN mkdir -p /app/modules /app/templates /app/data/logs /app/data/screenshots /app/data/videos /app/data/lowfps /app/data/temp

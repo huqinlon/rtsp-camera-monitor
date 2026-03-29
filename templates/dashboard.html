@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+
+{% block title %}仪表盘 - TP-LINK 摄像头监控系统{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 页面标题 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3><i class="fas fa-tachometer-alt"></i> 系统仪表盘</h3>
+        <button class="btn btn-primary" onclick="refreshPage()">
+            <i class="fas fa-redo"></i> 刷新数据
+        </button>
+    </div>
+    
+    <!-- 状态卡片 -->
+    <div class="row">
+        <div class="col-md-3">
+            <div class="card stat-card">
+                <div class="stat-icon" style="color: var(--success-color);">
+                    <i class="fas fa-circle"></i>
+                </div>
+                <div class="stat-value">
+                    {% if process_status.running %}
+                    <span class="text-success">运行中</span>
+                    {% else %}
+                    <span class="text-danger">已停止</span>
+                    {% endif %}
+                </div>
+                <div class="stat-label">服务状态</div>
+                {% if process_status.running %}
+                <div class="mt-2">
+                    <small class="text-muted">PID: {{ process_status.pid }}</small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card">
+                <div class="stat-icon" style="color: var(--primary-color);">
+                    <i class="fas fa-camera"></i>
+                </div>
+                <div class="stat-value">{{ today_stats.screenshot_count }}</div>
+                <div class="stat-label">今日截图</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card">
+                <div class="stat-icon" style="color: var(--warning-color);">
+                    <i class="fas fa-film"></i>
+                </div>
+                <div class="stat-value">{{ today_stats.video_count }}</div>
+                <div class="stat-label">今日视频</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card">
+                <div class="stat-icon" style="color: var(--info-color);">
+                    <i class="fas fa-hdd"></i>
+                </div>
+                <div class="stat-value">{{ storage_info.disk.free_gb }}GB</div>
+                <div class="stat-label">剩余空间</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 详细信息 -->
+    <div class="row">
+        <!-- 系统状态 -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <i class="fas fa-server"></i> 系统状态
+                </div>
+                <div class="card-body">
+                    <table class="table table-borderless">
+                        <tr>
+                            <td width="40%"><strong>服务状态</strong></td>
+                            <td>
+                                {% if process_status.running %}
+                                <span class="badge bg-success"><i class="fas fa-check"></i> 运行中</span>
+                                {% else %}
+                                <span class="badge bg-danger"><i class="fas fa-times"></i> 已停止</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>进程ID</strong></td>
+                            <td>{{ process_status.pid or '-' }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>内存占用</strong></td>
+                            <td>{{ "%.1f"|format(process_status.memory_mb) }} MB</td>
+                        </tr>
+                        <tr>
+                            <td><strong>CPU占用</strong></td>
+                            <td>{{ "%.1f"|format(process_status.cpu_percent) }}%</td>
+                        </tr>
+                        <tr>
+                            <td><strong>运行时长</strong></td>
+                            <td>{{ process_status.uptime or '-' }}</td>
+                        </tr>
+                    </table>
+                    <div class="text-center mt-3">
+                        <button class="btn btn-success btn-sm" onclick="restartService()">
+                            <i class="fas fa-sync"></i> 重启服务
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 存储信息 -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <i class="fas fa-database"></i> 存储信息
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>磁盘使用</span>
+                            <span>{{ storage_info.disk.used_percent }}%</span>
+                        </div>
+                        <div class="progress" style="height: 20px;">
+                            <div class="progress-bar" 
+                                 style="width: {{ storage_info.disk.used_percent }}%"
+                                 class="{% if storage_info.disk.used_percent > 90 %}bg-danger{% elif storage_info.disk.used_percent > 70 %}bg-warning{% else %}bg-primary{% endif %}">
+                            </div>
+                        </div>
+                        <small class="text-muted">
+                            共 {{ storage_info.disk.total_gb }}GB，已用 {{ storage_info.disk.total_gb - storage_info.disk.free_gb }}GB，剩余 {{ storage_info.disk.free_gb }}GB
+                        </small>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="border rounded p-3 text-center">
+                                <div class="text-muted small">截图目录</div>
+                                <div class="fw-bold">{{ storage_info.screenshot.size }}</div>
+                                <small class="text-muted">{{ storage_info.screenshot.count }} 个文件</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="border rounded p-3 text-center">
+                                <div class="text-muted small">视频目录</div>
+                                <div class="fw-bold">{{ storage_info.video.size }}</div>
+                                <small class="text-muted">{{ storage_info.video.count }} 个文件</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 操作按钮 -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <i class="fas fa-bolt"></i> 快捷操作
+                </div>
+                <div class="card-body text-center">
+                    <button class="btn btn-primary m-2" onclick="manualSynthesis()">
+                        <i class="fas fa-film"></i> 手动合成视频
+                    </button>
+                    <button class="btn btn-warning m-2" onclick="manualCleanup()">
+                        <i class="fas fa-broom"></i> 手动清理
+                    </button>
+                    <a href="/config" class="btn btn-info m-2">
+                        <i class="fas fa-cog"></i> 配置管理
+                    </a>
+                    <a href="/logs" class="btn btn-secondary m-2">
+                        <i class="fas fa-file-alt"></i> 查看日志
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 最近日志 -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span><i class="fas fa-list"></i> 最近日志</span>
+                    <a href="/logs" class="btn btn-sm btn-link">查看更多</a>
+                </div>
+                <div class="card-body">
+                    <div class="log-viewer">
+                        {% for log in recent_logs %}
+                        {{ log }}
+                        {% endfor %}
+                        {% if not recent_logs %}
+                        暂无日志记录
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // 手动合成视频
+    function manualSynthesis() {
+        if (confirm('确定要手动合成视频吗？')) {
+            const btn = event.target.closest('button');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<span class="loading"></span> 合成中...';
+            btn.disabled = true;
+            
+            fetch('/api/synthesis', { method: 'POST' })
+                .then(res => res.json())
+                .then(data => {
+                    alert(data.message);
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                    if (data.success) {
+                        refreshPage();
+                    }
+                })
+                .catch(err => {
+                    alert('合成失败: ' + err);
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                });
+        }
+    }
+    
+    // 手动清理
+    function manualCleanup() {
+        if (confirm('确定要手动清理吗？这将删除过期的文件。')) {
+            const btn = event.target.closest('button');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<span class="loading"></span> 清理中...';
+            btn.disabled = true;
+            
+            fetch('/api/cleanup', { method: 'POST' })
+                .then(res => res.json())
+                .then(data => {
+                    alert(data.message);
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                    if (data.success) {
+                        refreshPage();
+                    }
+                })
+                .catch(err => {
+                    alert('清理失败: ' + err);
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                });
+        }
+    }
+    
+    // 自动刷新页面
+    setInterval(() => {
+        fetch('/api/status')
+            .then(res => res.json())
+            .then(data => {
+                // 更新页面上的数据
+                location.reload();
+            })
+            .catch(err => {
+                console.log('自动刷新失败');
+            });
+    }, 60000); // 每分钟刷新一次
+</script>
+{% endblock %}

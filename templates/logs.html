@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+
+{% block title %}日志查看 - TP-LINK 摄像头监控系统{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 页面标题 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3><i class="fas fa-file-alt"></i> 日志查看</h3>
+        <div>
+            <select class="form-select form-select-sm" id="log-type" style="width: auto; display: inline-block;">
+                <option value="main">主日志</option>
+                <option value="screenshot">截图日志</option>
+                <option value="synthesis">合成日志</option>
+                <option value="upload">上传日志</option>
+                <option value="alerts">告警日志</option>
+                <option value="cleanup">清理日志</option>
+                <option value="guardian">守护日志</option>
+            </select>
+            <select class="form-select form-select-sm" id="log-lines" style="width: auto; display: inline-block;">
+                <option value="50">50行</option>
+                <option value="100">100行</option>
+                <option value="200" selected>200行</option>
+                <option value="500">500行</option>
+                <option value="1000">1000行</option>
+            </select>
+            <button class="btn btn-sm btn-primary" onclick="loadLogs()">
+                <i class="fas fa-redo"></i> 刷新
+            </button>
+            <button class="btn btn-sm btn-danger" onclick="clearLogs()">
+                <i class="fas fa-trash"></i> 清空
+            </button>
+        </div>
+    </div>
+    
+    <!-- 日志过滤器 -->
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <label class="form-label">搜索关键词</label>
+                    <input type="text" class="form-control" id="log-search" placeholder="输入关键词搜索...">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">日志级别</label>
+                    <select class="form-select" id="log-level">
+                        <option value="">全部</option>
+                        <option value="INFO">INFO</option>
+                        <option value="WARNING">WARNING</option>
+                        <option value="ERROR">ERROR</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">时间范围</label>
+                    <select class="form-select" id="log-time">
+                        <option value="">全部</option>
+                        <option value="1h">最近1小时</option>
+                        <option value="6h">最近6小时</option>
+                        <option value="24h">最近24小时</option>
+                        <option value="7d">最近7天</option>
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button class="btn btn-primary w-100" onclick="filterLogs()">
+                        <i class="fas fa-search"></i> 搜索
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 日志统计 -->
+    <div class="row mb-3">
+        <div class="col-md-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <span class="text-muted">
+                    共 <span id="log-count">0</span> 条日志
+                </span>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-secondary active" onclick="setAutoRefresh(true)">
+                        <i class="fas fa-play"></i> 自动刷新
+                    </button>
+                    <button class="btn btn-outline-secondary" onclick="setAutoRefresh(false)">
+                        <i class="fas fa-pause"></i> 暂停
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 日志显示区 -->
+    <div class="card">
+        <div class="card-header">
+            <i class="fas fa-list"></i> 日志内容
+        </div>
+        <div class="card-body p-0">
+            <div class="log-viewer" id="log-content" style="max-height: 70vh;">
+                <div class="text-center text-muted p-5">
+                    <i class="fas fa-spinner fa-spin fa-2x"></i>
+                    <p class="mt-2">正在加载日志...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let autoRefreshInterval = null;
+    let currentLogs = [];
+    
+    // 页面加载时获取日志
+    document.addEventListener('DOMContentLoaded', function() {
+        loadLogs();
+        
+        // 默认每30秒自动刷新
+        setAutoRefresh(true);
+    });
+    
+    // 加载日志
+    function loadLogs() {
+        const logType = document.getElementById('log-type').value;
+        const logLines = document.getElementById('log-lines').value;
+        
+        // 构建日志文件路径
+        let logFile = '/mnt/sd/camera1/logs/' + logType + '.log';
+        if (logType === 'main') {
+            logFile = '/mnt/sd/camera1/logs/main.log';
+        }
+        
+        fetch('/api/logs?lines=' + logLines)
+            .then(res => res.json())
+            .then(data => {
+                currentLogs = data.logs || [];
+                displayLogs(currentLogs);
+            })
+            .catch(err => {
+                document.getElementById('log-content').innerHTML = 
+                    '<div class="text-center text-danger p-5">' +
+                    '<i class="fas fa-exclamation-triangle fa-2x"></i>' +
+                    '<p class="mt-2">加载日志失败: ' + err + '</p>' +
+                    '</div>';
+            });
+    }
+    
+    // 显示日志
+    function displayLogs(logs) {
+        const container = document.getElementById('log-content');
+        document.getElementById('log-count').textContent = logs.length;
+        
+        if (logs.length === 0) {
+            container.innerHTML = '<div class="text-center text-muted p-5">' +
+                '<i class="fas fa-inbox fa-2x"></i>' +
+                '<p class="mt-2">暂无日志记录</p>' +
+                '</div>';
+            return;
+        }
+        
+        let html = '';
+        logs.forEach(line => {
+            // 根据日志级别添加颜色
+            let lineClass = '';
+            if (line.includes('[ERROR]')) {
+                lineClass = 'color: #ff6b6b;';
+            } else if (line.includes('[WARN]')) {
+                lineClass = 'color: #ffc107;';
+            } else if (line.includes('[INFO]')) {
+                lineClass = 'color: #51cf66;';
+            } else if (line.includes('[DEBUG]')) {
+                lineClass = 'color: #868e96;';
+            }
+            
+            // 转义HTML
+            line = line.replace(/&/g, '&amp;')
+                       .replace(/</g, '&lt;')
+                       .replace(/>/g, '&gt;');
+            
+            html += '<div style="' + lineClass + 'padding: 2px 0;">' + line + '</div>';
+        });
+        
+        container.innerHTML = html;
+        
+        // 滚动到底部
+        container.scrollTop = container.scrollHeight;
+    }
+    
+    // 过滤日志
+    function filterLogs() {
+        const searchKeyword = document.getElementById('log-search').value.toLowerCase();
+        const logLevel = document.getElementById('log-level').value;
+        const timeRange = document.getElementById('log-time').value;
+        
+        let filteredLogs = currentLogs;
+        
+        // 关键词过滤
+        if (searchKeyword) {
+            filteredLogs = filteredLogs.filter(line => 
+                line.toLowerCase().includes(searchKeyword)
+            );
+        }
+        
+        // 级别过滤
+        if (logLevel) {
+            filteredLogs = filteredLogs.filter(line => 
+                line.includes('[' + logLevel + ']')
+            );
+        }
+        
+        // 时间范围过滤（简化处理）
+        if (timeRange) {
+            // 实际生产环境中应该解析时间戳进行过滤
+            // 这里简化处理，只显示最后部分日志
+            const multipliers = {'1h': 50, '6h': 200, '24h': 500, '7d': 1000};
+            filteredLogs = filteredLogs.slice(-multipliers[timeRange]);
+        }
+        
+        displayLogs(filteredLogs);
+    }
+    
+    // 清空日志
+    function clearLogs() {
+        if (!confirm('确定要清空日志文件吗？此操作不可恢复！')) {
+            return;
+        }
+        
+        alert('清空日志功能需要在服务器上手动执行。\n请使用: rm -f /mnt/sd/camera1/logs/*.log');
+    }
+    
+    // 设置自动刷新
+    function setAutoRefresh(enabled) {
+        if (enabled) {
+            if (!autoRefreshInterval) {
+                autoRefreshInterval = setInterval(loadLogs, 30000); // 30秒
+            }
+            document.querySelector('[onclick="setAutoRefresh(true)"]').classList.add('active');
+            document.querySelector('[onclick="setAutoRefresh(false)"]').classList.remove('active');
+        } else {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+            }
+            document.querySelector('[onclick="setAutoRefresh(false)"]').classList.add('active');
+            document.querySelector('[onclick="setAutoRefresh(true)"]').classList.remove('active');
+        }
+    }
+    
+    // 切换日志类型时重新加载
+    document.getElementById('log-type').addEventListener('change', loadLogs);
+    document.getElementById('log-lines').addEventListener('change', loadLogs);
+</script>
+{% endblock %}

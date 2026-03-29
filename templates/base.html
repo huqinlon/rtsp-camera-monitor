@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}TP-LINK 摄像头监控系统{% endblock %}</title>
+    <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --success-color: #28a745;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+            --dark-color: #343a40;
+            --light-bg: #f8f9fa;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--light-bg);
+            min-height: 100vh;
+        }
+        
+        .navbar {
+            box-shadow: 0 2px 4px rgba(0,0,0,.1);
+        }
+        
+        .navbar-brand {
+            font-weight: 600;
+        }
+        
+        .sidebar {
+            position: fixed;
+            top: 56px;
+            left: 0;
+            width: 220px;
+            height: calc(100vh - 56px);
+            background-color: var(--dark-color);
+            padding-top: 20px;
+            overflow-y: auto;
+        }
+        
+        .sidebar .nav-link {
+            color: rgba(255,255,255,0.8);
+            padding: 12px 20px;
+            border-radius: 0;
+            transition: all 0.3s;
+        }
+        
+        .sidebar .nav-link:hover {
+            background-color: rgba(255,255,255,0.1);
+            color: #fff;
+        }
+        
+        .sidebar .nav-link.active {
+            background-color: var(--primary-color);
+            color: #fff;
+        }
+        
+        .sidebar .nav-link i {
+            width: 24px;
+            text-align: center;
+            margin-right: 10px;
+        }
+        
+        .main-content {
+            margin-left: 220px;
+            padding: 20px;
+            min-height: calc(100vh - 56px);
+        }
+        
+        .card {
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+        }
+        
+        .card-header {
+            background-color: #fff;
+            border-bottom: 1px solid #eee;
+            font-weight: 600;
+        }
+        
+        .stat-card {
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .stat-card .stat-icon {
+            font-size: 36px;
+            margin-bottom: 10px;
+        }
+        
+        .stat-card .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--dark-color);
+        }
+        
+        .stat-card .stat-label {
+            font-size: 14px;
+            color: #6c757d;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-indicator.running {
+            background-color: var(--success-color);
+            box-shadow: 0 0 8px var(--success-color);
+        }
+        
+        .status-indicator.stopped {
+            background-color: var(--danger-color);
+        }
+        
+        .log-viewer {
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 12px;
+            padding: 15px;
+            border-radius: 5px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        
+        .btn-action {
+            min-width: 100px;
+        }
+        
+        .config-section {
+            background-color: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .config-section h5 {
+            color: var(--dark-color);
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .form-label {
+            font-weight: 500;
+            color: #495057;
+        }
+        
+        .badge-status {
+            font-size: 12px;
+            padding: 5px 10px;
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                display: none;
+            }
+            .main-content {
+                margin-left: 0;
+            }
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-video"></i> 摄像头监控系统
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <span class="navbar-text text-white">
+                            <i class="fas fa-clock"></i> 
+                            <span id="current-time">{{ current_time }}</span>
+                        </span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- 侧边栏 -->
+    <nav class="sidebar">
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="/dashboard">
+                    <i class="fas fa-tachometer-alt"></i> 仪表盘
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if request.endpoint == 'config_page' %}active{% endif %}" href="/config">
+                    <i class="fas fa-cog"></i> 配置管理
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if request.endpoint == 'logs_page' %}active{% endif %}" href="/logs">
+                    <i class="fas fa-file-alt"></i> 日志查看
+                </a>
+            </li>
+            <li class="nav-item" style="margin-top: 20px; padding: 0 20px;">
+                <hr style="border-color: rgba(255,255,255,0.2);">
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" onclick="restartService()">
+                    <i class="fas fa-sync"></i> 重启服务
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" onclick="refreshPage()">
+                    <i class="fas fa-redo"></i> 刷新页面
+                </a>
+            </li>
+        </ul>
+    </nav>
+    
+    <!-- 主内容区 -->
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+    
+    <!-- 脚本 -->
+    <script src="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    
+    <script>
+        // 更新时间
+        function updateTime() {
+            const now = new Date();
+            const timeStr = now.toLocaleString('zh-CN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            document.getElementById('current-time').textContent = timeStr;
+        }
+        updateTime();
+        setInterval(updateTime, 1000);
+        
+        // 刷新页面
+        function refreshPage() {
+            location.reload();
+        }
+        
+        // 重启服务
+        function restartService() {
+            if (confirm('确定要重启监控服务吗？')) {
+                const btn = event.target;
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<span class="loading"></span> 重启中...';
+                btn.disabled = true;
+                
+                fetch('/api/service/restart', { method: 'POST' })
+                    .then(res => res.json())
+                    .then(data => {
+                        alert(data.message);
+                        setTimeout(() => {
+                            btn.innerHTML = originalText;
+                            btn.disabled = false;
+                            refreshPage();
+                        }, 2000);
+                    })
+                    .catch(err => {
+                        alert('重启失败: ' + err);
+                        btn.innerHTML = originalText;
+                        btn.disabled = false;
+                    });
+            }
+        }
+        
+        // 显示提示消息
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `alert alert-${type} position-fixed`;
+            toast.style.cssText = 'top: 70px; right: 20px; z-index: 9999; min-width: 250px;';
+            toast.innerHTML = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+        
+        {% block extra_js %}{% endblock %}
+    </script>
+</body>
+</html>

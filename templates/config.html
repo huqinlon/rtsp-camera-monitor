@@ -1,0 +1,517 @@
+{% extends "base.html" %}
+
+{% block title %}配置管理 - TP-LINK 摄像头监控系统{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 页面标题 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3><i class="fas fa-cog"></i> 配置管理</h3>
+        <div>
+            <button class="btn btn-success" onclick="saveConfig()">
+                <i class="fas fa-save"></i> 保存配置
+            </button>
+            <button class="btn btn-primary" onclick="location.reload()">
+                <i class="fas fa-redo"></i> 重置
+            </button>
+        </div>
+    </div>
+    
+    <form id="config-form">
+        <!-- 摄像头配置 -->
+        <div class="config-section">
+            <h5><i class="fas fa-camera"></i> 摄像头配置</h5>
+            <div id="camera-list">
+                {% for camera in config.camera.cameras %}
+                <div class="card mb-3 camera-item" data-index="{{ loop.index0 }}">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <label class="form-label">摄像头名称</label>
+                                <input type="text" class="form-control" name="camera_name" value="{{ camera.name }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">RTSP地址</label>
+                                <input type="text" class="form-control" name="camera_rtsp" value="{{ camera.rtsp_url }}">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">启用</label>
+                                <div class="form-check form-switch mt-2">
+                                    <input class="form-check-input" type="checkbox" name="camera_enabled" 
+                                           {% if camera.enabled %}checked{% endif %}>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <button type="button" class="btn btn-sm btn-secondary" onclick="addCamera()">
+                <i class="fas fa-plus"></i> 添加摄像头
+            </button>
+        </div>
+        
+        <!-- 存储配置 -->
+        <div class="config-section">
+            <h5><i class="fas fa-folder"></i> 存储配置</h5>
+            <div class="row">
+                <div class="col-md-6">
+                    <label class="form-label">截图存储目录</label>
+                    <input type="text" class="form-control" name="screenshot_dir" 
+                           value="{{ config.storage.screenshot_dir }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">视频存储目录</label>
+                    <input type="text" class="form-control" name="video_dir" 
+                           value="{{ config.storage.video_dir }}">
+                </div>
+            </div>
+            <div class="row mt-3">
+                <div class="col-md-4">
+                    <label class="form-label">低帧率视频目录</label>
+                    <input type="text" class="form-control" name="lowfps_dir" 
+                           value="{{ config.storage.lowfps_dir }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">临时目录</label>
+                    <input type="text" class="form-control" name="temp_dir" 
+                           value="{{ config.storage.temp_dir }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">文件保留天数</label>
+                    <input type="number" class="form-control" name="keep_days" 
+                           value="{{ config.storage.keep_days }}">
+                </div>
+            </div>
+        </div>
+        
+        <!-- 定时截图配置 -->
+        <div class="config-section">
+            <h5><i class="fas fa-image"></i> 定时截图配置</h5>
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="scheme1_enabled" name="scheme1_enabled"
+                               {% if config.scheme1_screenshot.enabled %}checked{% endif %}>
+                        <label class="form-check-label" for="scheme1_enabled">启用定时截图</label>
+                    </div>
+                </div>
+            </div>
+            <div id="interval-list">
+                {% for interval in config.scheme1_screenshot.intervals %}
+                <div class="row mb-2 interval-item">
+                    <div class="col-md-3">
+                        <label class="form-label">开始时间</label>
+                        <input type="text" class="form-control" name="interval_start" value="{{ interval.start }}" 
+                               placeholder="00:00">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">结束时间</label>
+                        <input type="text" class="form-control" name="interval_end" value="{{ interval.end }}"
+                               placeholder="24:00">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">截图间隔（秒）</label>
+                        <input type="number" class="form-control" name="interval_seconds" 
+                               value="{{ interval.interval_seconds }}">
+                    </div>
+                    <div class="col-md-3 d-flex align-items-end">
+                        <button type="button" class="btn btn-danger btn-sm" onclick="removeInterval(this)">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <button type="button" class="btn btn-sm btn-secondary" onclick="addInterval()">
+                <i class="fas fa-plus"></i> 添加时间段
+            </button>
+        </div>
+        
+        <!-- 视频合成配置 -->
+        <div class="config-section">
+            <h5><i class="fas fa-film"></i> 视频合成配置</h5>
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="synthesis_enabled" name="synthesis_enabled"
+                               {% if config.video_synthesis.enabled %}checked{% endif %}>
+                        <label class="form-check-label" for="synthesis_enabled">启用视频合成</label>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-3">
+                    <label class="form-label">合成时间</label>
+                    <input type="text" class="form-control" name="synthesis_schedule" 
+                           value="{{ config.video_synthesis.schedule }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">输出帧率 (fps)</label>
+                    <input type="number" class="form-control" name="synthesis_fps" 
+                           value="{{ config.video_synthesis.output_fps }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">编码器</label>
+                    <select class="form-select" name="synthesis_codec">
+                        <option value="libx264" {% if config.video_synthesis.codec == 'libx264' %}selected{% endif %}>H.264</option>
+                        <option value="libx265" {% if config.video_synthesis.codec == 'libx265' %}selected{% endif %}>H.265</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">质量 (CRF)</label>
+                    <input type="number" class="form-control" name="synthesis_quality" 
+                           value="{{ config.video_synthesis.quality }}" min="0" max="51">
+                    <small class="text-muted">值越小质量越高，18-28较合适</small>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 云端上传配置 -->
+        <div class="config-section">
+            <h5><i class="fas fa-cloud-upload-alt"></i> 云端上传配置</h5>
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="upload_enabled" name="upload_enabled"
+                               {% if config.cloud_upload.enabled %}checked{% endif %}>
+                        <label class="form-check-label" for="upload_enabled">启用云端上传</label>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-3">
+                    <label class="form-label">Rclone远程名称</label>
+                    <input type="text" class="form-control" name="rclone_remote" 
+                           value="{{ config.cloud_upload.rclone_config.remote }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">远程路径</label>
+                    <input type="text" class="form-control" name="rclone_path" 
+                           value="{{ config.cloud_upload.rclone_config.remote_path }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">上传时间</label>
+                    <input type="text" class="form-control" name="upload_schedule" 
+                           value="{{ config.cloud_upload.schedule }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label mt-4">
+                        <input type="checkbox" name="upload_videos" {% if config.cloud_upload.upload_videos %}checked{% endif %}>
+                        上传视频
+                    </label>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 统计推送配置 -->
+        <div class="config-section">
+            <h5><i class="fas fa-chart-bar"></i> 统计推送配置</h5>
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="stats_enabled" name="stats_enabled"
+                               {% if config.statistics.enabled %}checked{% endif %}>
+                        <label class="form-check-label" for="stats_enabled">启用统计推送</label>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-4">
+                    <label class="form-label">Memos API地址</label>
+                    <input type="text" class="form-control" name="memos_api" 
+                           value="{{ config.statistics.memos_api_url }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Memos Token</label>
+                    <input type="password" class="form-control" name="memos_token" 
+                           value="{{ config.statistics.memos_token }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">可见性</label>
+                    <select class="form-select" name="memos_visibility">
+                        <option value="PUBLIC" {% if config.statistics.visibility == 'PUBLIC' %}selected{% endif %}>公开</option>
+                        <option value="PRIVATE" {% if config.statistics.visibility == 'PRIVATE' %}selected{% endif %}>私有</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">推送时间</label>
+                    <input type="text" class="form-control" name="stats_schedule" 
+                           value="{{ config.statistics.schedule }}">
+                </div>
+            </div>
+        </div>
+        
+        <!-- 告警配置 -->
+        <div class="config-section">
+            <h5><i class="fas fa-bell"></i> 告警配置</h5>
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="alerts_enabled" name="alerts_enabled"
+                               {% if config.alerts.enabled %}checked{% endif %}>
+                        <label class="form-check-label" for="alerts_enabled">启用告警推送</label>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6">
+                    <label class="form-label">PushPlus Token</label>
+                    <input type="password" class="form-control" name="pushplus_token" 
+                           value="{{ config.alerts.pushplus_token }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">检查间隔（分钟）</label>
+                    <input type="number" class="form-control" name="alert_check_interval" 
+                           value="{{ config.alerts.check_interval_minutes }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">离线阈值（分钟）</label>
+                    <input type="number" class="form-control" name="offline_threshold" 
+                           value="{{ config.alerts.offline_threshold_minutes }}">
+                </div>
+            </div>
+        </div>
+        
+        <!-- 自动清理配置 -->
+        <div class="config-section">
+            <h5><i class="fas fa-broom"></i> 自动清理配置</h5>
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="cleanup_enabled" name="cleanup_enabled"
+                               {% if config.cleanup.enabled %}checked{% endif %}>
+                        <label class="form-check-label" for="cleanup_enabled">启用自动清理</label>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-2">
+                    <label class="form-label">截图保留天数</label>
+                    <input type="number" class="form-control" name="cleanup_screenshot_days" 
+                           value="{{ config.cleanup.screenshot_days }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">视频保留天数</label>
+                    <input type="number" class="form-control" name="cleanup_video_days" 
+                           value="{{ config.cleanup.video_days }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">日志保留天数</label>
+                    <input type="number" class="form-control" name="cleanup_log_days" 
+                           value="{{ config.cleanup.log_days }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">清理时间</label>
+                    <input type="text" class="form-control" name="cleanup_schedule" 
+                           value="{{ config.cleanup.schedule }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">最小剩余空间(G)</label>
+                    <input type="number" class="form-control" name="cleanup_min_space" 
+                           value="{{ config.cleanup.min_free_space_gb }}">
+                </div>
+            </div>
+        </div>
+        
+        <!-- 保存按钮 -->
+        <div class="text-center mb-5">
+            <button type="button" class="btn btn-success btn-lg" onclick="saveConfig()">
+                <i class="fas fa-save"></i> 保存配置
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // 添加摄像头
+    function addCamera() {
+        const template = `
+            <div class="card mb-3 camera-item">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <label class="form-label">摄像头名称</label>
+                            <input type="text" class="form-control" name="camera_name" value="">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">RTSP地址</label>
+                            <input type="text" class="form-control" name="camera_rtsp" value="">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">启用</label>
+                            <div class="form-check form-switch mt-2">
+                                <input class="form-check-input" type="checkbox" name="camera_enabled" checked>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.getElementById('camera-list').insertAdjacentHTML('beforeend', template);
+    }
+    
+    // 添加时间段
+    function addInterval() {
+        const template = `
+            <div class="row mb-2 interval-item">
+                <div class="col-md-3">
+                    <input type="text" class="form-control" name="interval_start" value="00:00" placeholder="00:00">
+                </div>
+                <div class="col-md-3">
+                    <input type="text" class="form-control" name="interval_end" value="24:00" placeholder="24:00">
+                </div>
+                <div class="col-md-3">
+                    <input type="number" class="form-control" name="interval_seconds" value="300">
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="button" class="btn btn-danger btn-sm" onclick="removeInterval(this)">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+        document.getElementById('interval-list').insertAdjacentHTML('beforeend', template);
+    }
+    
+    // 移除时间段
+    function removeInterval(btn) {
+        btn.closest('.interval-item').remove();
+    }
+    
+    // 保存配置
+    function saveConfig() {
+        const form = document.getElementById('config-form');
+        const formData = new FormData(form);
+        
+        // 构建配置对象
+        const config = {
+            camera: {
+                cameras: []
+            },
+            storage: {},
+            scheme1_screenshot: {
+                enabled: formData.get('scheme1_enabled') !== null,
+                intervals: []
+            },
+            video_synthesis: {
+                enabled: formData.get('synthesis_enabled') !== null,
+                schedule: formData.get('synthesis_schedule'),
+                output_fps: parseInt(formData.get('synthesis_fps')),
+                codec: formData.get('synthesis_codec'),
+                quality: parseInt(formData.get('synthesis_quality'))
+            },
+            cloud_upload: {
+                enabled: formData.get('upload_enabled') !== null,
+                rclone_config: {
+                    remote: formData.get('rclone_remote'),
+                    remote_path: formData.get('rclone_path')
+                },
+                upload_videos: formData.get('upload_videos') !== null,
+                schedule: formData.get('upload_schedule')
+            },
+            statistics: {
+                enabled: formData.get('stats_enabled') !== null,
+                memos_api_url: formData.get('memos_api'),
+                memos_token: formData.get('memos_token'),
+                visibility: formData.get('memos_visibility'),
+                schedule: formData.get('stats_schedule'),
+                push_to_memos: true,
+                tags: ['监控', '统计']
+            },
+            alerts: {
+                enabled: formData.get('alerts_enabled') !== null,
+                pushplus_token: formData.get('pushplus_token'),
+                check_interval_minutes: parseInt(formData.get('alert_check_interval')),
+                offline_threshold_minutes: parseInt(formData.get('offline_threshold')),
+                push_to_pushplus: true,
+                alert_types: {
+                    camera_offline: true,
+                    rtsp_connect_failed: true,
+                    storage_full: true,
+                    screenshot_failed: true,
+                    video_synthesis_failed: true,
+                    upload_failed: true,
+                    process_restart: true,
+                    cleanup_failed: true
+                }
+            },
+            cleanup: {
+                enabled: formData.get('cleanup_enabled') !== null,
+                screenshot_days: parseInt(formData.get('cleanup_screenshot_days')),
+                video_days: parseInt(formData.get('cleanup_video_days')),
+                log_days: parseInt(formData.get('cleanup_log_days')),
+                schedule: formData.get('cleanup_schedule'),
+                min_free_space_gb: parseInt(formData.get('cleanup_min_space'))
+            },
+            logging: {
+                enabled: true,
+                log_dir: '/mnt/sd/camera1/logs',
+                log_level: 'INFO',
+                separate_logs: {
+                    screenshot: true,
+                    lowfps: true,
+                    synthesis: true,
+                    upload: true,
+                    statistics: true,
+                    alerts: true,
+                    cleanup: true,
+                    guardian: true
+                }
+            }
+        };
+        
+        // 收集摄像头信息
+        const cameraItems = document.querySelectorAll('.camera-item');
+        cameraItems.forEach(item => {
+            config.camera.cameras.push({
+                name: item.querySelector('[name="camera_name"]').value,
+                rtsp_url: item.querySelector('[name="camera_rtsp"]').value,
+                enabled: item.querySelector('[name="camera_enabled"]').checked
+            });
+        });
+        
+        // 收集存储信息
+        config.storage = {
+            screenshot_dir: formData.get('screenshot_dir'),
+            video_dir: formData.get('video_dir'),
+            lowfps_dir: formData.get('lowfps_dir'),
+            temp_dir: formData.get('temp_dir'),
+            keep_days: parseInt(formData.get('keep_days'))
+        };
+        
+        // 收集时间段信息
+        const intervalItems = document.querySelectorAll('.interval-item');
+        intervalItems.forEach(item => {
+            config.scheme1_screenshot.intervals.push({
+                start: item.querySelector('[name="interval_start"]').value,
+                end: item.querySelector('[name="interval_end"]').value,
+                interval_seconds: parseInt(item.querySelector('[name="interval_seconds"]').value)
+            });
+        });
+        
+        // 发送保存请求
+        fetch('/api/config', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(config)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert('配置保存成功！');
+                location.reload();
+            } else {
+                alert('配置保存失败：' + data.message);
+            }
+        })
+        .catch(err => {
+            alert('保存失败：' + err);
+        });
+    }
+</script>
+{% endblock %}

@@ -32,6 +32,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 FROM base AS python-deps
 
 # 升级 pip
+# hadolint ignore=DL3008
 RUN pip3 install --no-cache-dir --break-system-packages --upgrade pip setuptools wheel
 
 # 安装 Python 依赖

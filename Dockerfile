@@ -4,36 +4,34 @@
 # ============================================
 
 # -----------------------------
-# 基础阶段：安装系统依赖
+# 基础阶段：使用官方 Python 镜像
 # -----------------------------
-FROM debian:bookworm-slim AS base
+FROM python:3.11-slim-bookworm AS base
 
 # 防止交互式安装提示
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
+ENV PIP_NO_CACHE_DIR=1
 
 # 安装基础系统工具
 # hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 \
-    python3-pip \
-    python3-venv \
     ffmpeg \
     curl \
     wget \
     git \
     ca-certificates \
     tzdata \
-    && rm -rf /var/lib/apt/lists/*
+    libjpeg-dev \
+    zlib1g-dev \
+    libpng-dev \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd -m -s /bin/bash camera
 
 # -----------------------------
 # Python 依赖阶段
 # -----------------------------
 FROM base AS python-deps
-
-# 使用虚拟环境安装 Python 依赖，避免系统包冲突
-RUN python3 -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
 
 # 安装 Python 依赖
 COPY requirements.txt /tmp/requirements.txt
@@ -44,9 +42,9 @@ RUN pip install --no-cache-dir -r /tmp/requirements.txt
 # -----------------------------
 FROM base AS runtime
 
-# 复制 Python 虚拟环境
-COPY --from=python-deps /opt/venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+# 复制 Python 依赖
+COPY --from=python-deps /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=python-deps /usr/local/bin /usr/local/bin
 
 # 创建应用目录
 RUN mkdir -p /app/modules /app/templates /app/data/logs /app/data/screenshots /app/data/videos /app/data/lowfps /app/data/temp
@@ -63,9 +61,8 @@ COPY install.sh /usr/local/bin/
 COPY start_web.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/*.sh
 
-# 创建非 root 用户
-RUN useradd -m -s /bin/bash camera && \
-    chown -R camera:camera /app
+# 设置权限
+RUN chown -R camera:camera /app
 
 # 设置工作目录
 WORKDIR /app

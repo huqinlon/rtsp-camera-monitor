@@ -1,0 +1,28 @@
+[Unit]
+Description=TP-LINK Camera Monitor Service
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/mnt/sd/camera1
+ExecStart=/usr/bin/python3 /mnt/sd/camera1/camera_monitor.py
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=30
+TimeoutStopSec=60
+
+# 环境变量
+Environment=PYTHONUNBUFFERED=1
+
+# 输出重定向
+StandardOutput=append:/mnt/sd/camera1/logs/systemd.log
+StandardError=append:/mnt/sd/camera1/logs/systemd_error.log
+
+# 资源限制
+MemoryMax=500M
+CPUQuota=50%
+
+[Install]
+WantedBy=multi-user.target

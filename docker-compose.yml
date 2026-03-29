@@ -1,0 +1,119 @@
+# ============================================
+# TP-LINK Camera Monitor - Docker Compose 配置
+# ============================================
+#
+# 包含两个服务:
+#   - camera-monitor: 主监控服务（截图、视频合成、云端上传等）
+#   - camera-web: Web 管理界面
+#
+# 使用方法:
+#   1. 一键部署: docker-compose up -d
+#   2. 查看日志:  docker-compose logs -f [服务名]
+#   3. 停止服务:  docker-compose down
+#   4. 重新构建:  docker-compose up -d --build
+#
+# Web 访问地址: http://服务器IP:5000
+# ============================================
+
+services:
+  # -----------------------------------------
+  # 主监控服务
+  # -----------------------------------------
+  camera-monitor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: camera-monitor
+    restart: unless-stopped
+    network_mode: host
+
+    volumes:
+      # 配置文件（必需）
+      - ./config.json:/app/config.json:ro
+
+      # -------------------------------------
+      # 数据持久化目录 - 以下目录需要持久化
+      # -------------------------------------
+
+      # 截图目录 - 存储定时采集的图像
+      - ./data/screenshots:/app/data/screenshots
+
+      # 视频目录 - 存储合成的浓缩视频
+      - ./data/videos:/app/data/videos
+
+      # 低帧率视频目录 - 存储动态录像（如果启用）
+      - ./data/lowfps:/app/data/lowfps
+
+      # 日志目录 - 存储系统运行日志
+      - ./data/logs:/app/data/logs
+
+      # rclone配置（如果使用云端上传）
+      - ~/.config/rclone:/config/rclone:ro
+
+      # 时区配置
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+
+    environment:
+      - TZ=Asia/Shanghai
+      - PYTHONUNBUFFERED=1
+
+    # 资源限制（可选，根据设备性能调整）
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+    # 依赖 Web 服务（可选，确保启动顺序）
+    depends_on:
+      - camera-web
+
+  # -----------------------------------------
+  # Web 管理界面服务
+  # -----------------------------------------
+  camera-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: camera-web
+    restart: unless-stopped
+    ports:
+      - "5000:5000"    # Web 界面端口映射
+    network_mode: host
+
+    volumes:
+      # 配置文件（必需）
+      - ./config.json:/app/config.json:ro
+
+      # 日志目录
+      - ./data/logs:/app/data/logs
+
+      # 时区配置
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+
+    environment:
+      - TZ=Asia/Shanghai
+      - PYTHONUNBUFFERED=1
+      - FLASK_ENV=production
+      - WEB_SECRET_KEY=change-this-secret-key-in-production
+
+    # 覆盖默认启动命令，启动 Web 服务
+    command: ["python3", "/app/web_app.py"]
+
+    # 资源限制
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+
+# -----------------------------------------
+# 网络配置
+# -----------------------------------------
+networks:
+  default:
+    driver: bridge

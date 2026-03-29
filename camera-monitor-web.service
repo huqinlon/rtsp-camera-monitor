@@ -1,0 +1,27 @@
+[Unit]
+Description=TP-LINK Camera Monitor Web Interface
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/mnt/sd/camera1
+ExecStart=/usr/bin/python3 /mnt/sd/camera1/web_app.py --host 0.0.0.0 --port 5000
+Restart=always
+RestartSec=10
+TimeoutStartSec=30
+TimeoutStopSec=60
+
+# 环境变量
+Environment=PYTHONUNBUFFERED=1
+
+# 输出重定向
+StandardOutput=append:/mnt/sd/camera1/logs/web.log
+StandardError=append:/mnt/sd/camera1/logs/web_error.log
+
+# 资源限制
+MemoryMax=300M
+CPUQuota=30%
+
+[Install]
+WantedBy=multi-user.target

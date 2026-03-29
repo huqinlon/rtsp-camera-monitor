@@ -1,0 +1,125 @@
+{
+  "camera": {
+    "cameras": [
+      {
+        "name": "摄像头1-广角",
+        "rtsp_url": "rtsp://用户名:密码@摄像头IP地址:554/码流地址",
+        "enabled": true
+      },
+      {
+        "name": "摄像头2-球机",
+        "rtsp_url": "rtsp://用户名:密码@摄像头IP地址:554/码流地址",
+        "enabled": false
+      }
+    ]
+  },
+  
+  "storage": {
+    "screenshot_dir": "/mnt/sd/camera1/screenshots",
+    "video_dir": "/mnt/sd/camera1/videos",
+    "lowfps_dir": "/mnt/sd/camera1/lowfps_videos",
+    "temp_dir": "/mnt/sd/camera1/temp",
+    "keep_days": 7
+  },
+  
+  "scheme1_screenshot": {
+    "enabled": true,
+    "intervals": [
+      {"start": "00:00", "end": "06:00", "interval_seconds": 900},
+      {"start": "06:00", "end": "12:00", "interval_seconds": 300},
+      {"start": "12:00", "end": "18:00", "interval_seconds": 600},
+      {"start": "18:00", "end": "24:00", "interval_seconds": 300}
+    ]
+  },
+  
+  "scheme3_lowfps": {
+    "enabled": false,
+    "frame_rate": 1,
+    "periods": [
+      {"start": "07:00", "end": "09:00"},
+      {"start": "17:00", "end": "19:00"},
+      {"start": "22:00", "end": "06:00"}
+    ]
+  },
+  
+  "video_synthesis": {
+    "enabled": true,
+    "output_fps": 2,
+    "codec": "libx264",
+    "quality": 23,
+    "schedule": "01:00"
+  },
+  
+  "cloud_upload": {
+    "enabled": false,
+    "rclone_config": {
+      "remote": "你的rclone配置名称",
+      "remote_path": "云端文件夹路径"
+    },
+    "upload_screenshots": false,
+    "upload_videos": true,
+    "schedule": "02:00"
+  },
+  
+  "statistics": {
+    "enabled": false,
+    "push_to_memos": true,
+    "memos_api_url": "https://你的memos域名/api/v1/memos",
+    "memos_token": "你的memos_token",
+    "visibility": "PUBLIC",
+    "tags": ["监控", "统计"],
+    "schedule": "08:00"
+  },
+  
+  "cleanup": {
+    "enabled": true,
+    "screenshot_days": 7,
+    "video_days": 30,
+    "lowfps_days": 7,
+    "log_days": 30,
+    "schedule": "03:00",
+    "min_free_space_gb": 10
+  },
+  
+  "guardian": {
+    "enabled": true,
+    "check_interval_minutes": 5,
+    "auto_restart": true,
+    "max_memory_mb": 500,
+    "restart_on_error": true
+  },
+  
+  "alerts": {
+    "enabled": false,
+    "push_to_pushplus": true,
+    "pushplus_token": "你的pushplus_token",
+    "alert_types": {
+      "camera_offline": true,
+      "rtsp_connect_failed": true,
+      "storage_full": true,
+      "screenshot_failed": true,
+      "video_synthesis_failed": true,
+      "upload_failed": true,
+      "process_restart": true,
+      "cleanup_failed": true
+    },
+    "check_interval_minutes": 5,
+    "offline_threshold_minutes": 10
+  },
+  
+  "logging": {
+    "enabled": true,
+    "log_dir": "/mnt/sd/camera1/logs",
+    "log_level": "INFO",
+    "separate_logs": {
+      "screenshot": true,
+      "lowfps": true,
+      "synthesis": true,
+      "upload": true,
+      "statistics": true,
+      "alerts": true,
+      "cleanup": true,
+      "guardian": true
+    }
+  }
+}

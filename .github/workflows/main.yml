@@ -1,0 +1,308 @@
+# ============================================
+# GitHub Actions 工作流 - Docker 镜像多架构构建
+# 支持平台：AMD64 (x86_64) 和 ARM64 (aarch64)
+# ============================================
+#
+# 触发条件：
+#   - main 分支代码推送
+#   - Git 标签推送（v*）
+#   - 手动触发 (workflow_dispatch)
+#
+# 必需 Secrets：
+#   Settings → Secrets and variables → Actions
+#   - DOCKERHUB_USERNAME: Docker Hub 用户名
+#   - DOCKERHUB_TOKEN: Docker Hub 访问令牌
+# ============================================
+
+name: Docker 多架构镜像构建
+
+on:
+# 代码推送到 main 分支时触发
+push:
+branches:
+- main
+tags:
+- 'v*'
+# 手动触发工作流
+workflow_dispatch:
+
+# 环境变量
+env:
+REGISTRY: docker.io
+IMAGE_NAME: ${{ github.repository_owner }}/camera-monitor
+
+jobs:
+# ========================================
+# 阶段 1：代码质量检查
+# ========================================
+code-quality:
+name: 代码检查
+runs-on: ubuntu-latest
+steps:
+# 检出代码
+- name: 检出代码
+uses: actions/checkout@v4
+
+# Dockerfile 规范检查
+- name: Hadolint 检查
+uses: hadolint/hadolint-action@v3.1.0
+with:
+dockerfile: ./Dockerfile
+failure-threshold: warning
+
+# 敏感信息检查
+- name: 敏感信息扫描
+run: |
+echo "执行敏感信息扫描..."
+if grep -rE "password\s*=\s*['\"]|secret\s*=\s*['\"]|token\s*=\s*['\"]|api_key" Dockerfile *.sh 2>/dev/null; then
+echo "警告: 发现潜在敏感信息，请确认是否需要移除"
+fi
+
+# ========================================
+# 阶段 2：构建 AMD64 架构镜像
+# ========================================
+build-amd64:
+name: 构建 AMD64 镜像
+runs-on: ubuntu-latest
+needs: code-quality
+steps:
+- name: 检出代码
+uses: actions/checkout@v4
+
+# 设置 QEMU 支持
+- name: 设置 QEMU
+uses: docker/setup-qemu-action@v3
+
+# 设置 Docker Buildx
+- name: 设置 Docker Buildx
+uses: docker/setup-buildx-action@v3
+
+# 登录 Docker Hub
+- name: 登录 Docker Hub
+uses: docker/login-action@v3
+with:
+username: ${{ secrets.DOCKERHUB_USERNAME }}
+password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+# 提取镜像元数据
+- name: 提取元数据
+id: meta
+uses: docker/metadata-action@v5
+with:
+images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+tags: |
+type=ref,event=branch
+type=ref,event=pr
+type=semver,pattern={{version}}
+type=semver,pattern={{major}}.{{minor}}
+type=sha,prefix=
+
+# 构建并推送 AMD64 镜像
+- name: 构建 AMD64 镜像
+uses: docker/build-push-action@v5
+with:
+context: .
+platforms: linux/amd64
+push: true
+tags: |
+${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:amd64-${{ github.sha }}
+${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:amd64-latest
+labels: ${{ steps.meta.outputs.labels }}
+cache-from: type=gha
+cache-to: type=gha,mode=max
+build-args: |
+BUILD_DATE=${{ steps.meta.outputs.created }}
+VERSION=${{ github.sha }}
+TARGETARCH=amd64
+
+# 输出构建信息
+- name: 构建完成
+run: |
+echo "✅ AMD64 镜像构建并推送成功"
+echo "   镜像: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:amd64-latest"
+echo "   SHA: ${{ github.sha }}"
+
+# ========================================
+# 阶段 3：构建 ARM64 架构镜像
+# ========================================
+build-arm64:
+name: 构建 ARM64 镜像
+runs-on: ubuntu-latest
+needs: code-quality
+steps:
+- name: 检出代码
+uses: actions/checkout@v4
+
+# 设置 QEMU 支持
+- name: 设置 QEMU
+uses: docker/setup-qemu-action@v3
+
+# 设置 Docker Buildx
+- name: 设置 Docker Buildx
+uses: docker/setup-buildx-action@v3
+
+# 登录 Docker Hub
+- name: 登录 Docker Hub
+uses: docker/login-action@v3
+with:
+username: ${{ secrets.DOCKERHUB_USERNAME }}
+password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+# 提取镜像元数据
+- name: 提取元数据
+id: meta
+uses: docker/metadata-action@v5
+with:
+images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+tags: |
+type=ref,event=branch
+type=ref,event=pr
+type=semver,pattern={{version}}
+type=semver,pattern={{major}}.{{minor}}
+type=sha,prefix=
+
+# 构建并推送 ARM64 镜像
+- name: 构建 ARM64 镜像
+uses: docker/build-push-action@v5
+with:
+context: .
+platforms: linux/arm64/v8
+push: true
+tags: |
+${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:arm64-${{ github.sha }}
+${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:arm64-latest
+labels: ${{ steps.meta.outputs.labels }}
+cache-from: type=gha
+cache-to: type=gha,mode=max
+build-args: |
+BUILD_DATE=${{ steps.meta.outputs.created }}
+VERSION=${{ github.sha }}
+TARGETARCH=arm64
+
+# 输出构建信息
+- name: 构建完成
+run: |
+echo "✅ ARM64 镜像构建并推送成功"
+echo "   镜像: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:arm64-latest"
+echo "   SHA: ${{ github.sha }}"
+
+# ========================================
+# 阶段 4：创建多架构镜像清单
+# ========================================
+create-manifest:
+name: 创建多架构清单
+runs-on: ubuntu-latest
+needs: [build-amd64, build-arm64]
+steps:
+- name: 检出代码
+uses: actions/checkout@v4
+
+# 设置 Docker Buildx
+- name: 设置 Docker Buildx
+uses: docker/setup-buildx-action@v3
+
+# 登录 Docker Hub
+- name: 登录 Docker Hub
+uses: docker/login-action@v3
+with:
+username: ${{ secrets.DOCKERHUB_USERNAME }}
+password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+# 创建并推送多架构清单
+- name: 创建 latest 清单
+run: |
+echo "创建 latest 多架构镜像清单..."
+
+docker manifest create \
+${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
+--amend ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:amd64-latest \
+--amend ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:arm64-latest
+
+docker manifest push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+echo "✅ latest 清单创建并推送成功"
+
+# 创建版本标签清单
+- name: 创建版本标签清单
+if: startsWith(github.ref, 'refs/tags/')
+run: |
+VERSION=${GITHUB_REF#refs/tags/}
+echo "创建版本 $VERSION 的多架构清单..."
+
+docker manifest create \
+${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$VERSION \
+--amend ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:amd64-${{ github.sha }} \
+--amend ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:arm64-${{ github.sha }}
+
+docker manifest push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$VERSION
+
+echo "✅ 版本 $VERSION 清单创建并推送成功"
+
+# ========================================
+# 阶段 5：生成构建报告
+# ========================================
+build-summary:
+name: 生成构建报告
+runs-on: ubuntu-latest
+needs: create-manifest
+if: always()
+steps:
+- name: 生成构建摘要
+run: |
+echo "## 📦 Camera Monitor Docker 镜像构建报告" >> $GITHUB_STEP_SUMMARY
+echo "" >> $GITHUB_STEP_SUMMARY
+echo "**提交哈希**: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+echo "" >> $GITHUB_STEP_SUMMARY
+echo "**触发来源**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+echo "" >> $GITHUB_STEP_SUMMARY
+echo "**构建时间**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+echo "" >> $GITHUB_STEP_SUMMARY
+echo "---" >> $GITHUB_STEP_SUMMARY
+echo "" >> $GITHUB_STEP_SUMMARY
+echo "## 🖥️ 可用镜像" >> $GITHUB_STEP_SUMMARY
+echo "" >> $GITHUB_STEP_SUMMARY
+echo "| 架构 | 镜像标签 | 适用场景 |" >> $GITHUB_STEP_SUMMARY
+echo "|------|----------|----------|" >> $GITHUB_STEP_SUMMARY
+echo "| AMD64 | \`amd64-latest\` | Intel/AMD 服务器、迷你主机 |" >> $GITHUB_STEP_SUMMARY
+echo "| ARM64 | \`arm64-latest\` | 树莓派 4B/5、ARM 开发板 |" >> $GITHUB_STEP_SUMMARY
+echo "| 多架构 | \`latest\` | 自动选择对应架构 |" >> $GITHUB_STEP_SUMMARY
+echo "" >> $GITHUB_STEP_SUMMARY
+echo "---" >> $GITHUB_STEP_SUMMARY
+echo "" >> $GITHUB_STEP_SUMMARY
+echo "## 📥 拉取命令" >> $GITHUB_STEP_SUMMARY
+echo "" >> $GITHUB_STEP_SUMMARY
+echo '```bash' >> $GITHUB_STEP_SUMMARY
+echo "# AMD64 镜像（Intel/AMD 处理器）" >> $GITHUB_STEP_SUMMARY
+echo "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:amd64-latest" >> $GITHUB_STEP_SUMMARY
+echo "" >> $GITHUB_STEP_SUMMARY
+echo "# ARM64 镜像（树莓派、ARM 设备）" >> $GITHUB_STEP_SUMMARY
+echo "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:arm64-latest" >> $GITHUB_STEP_SUMMARY
+echo "" >> $GITHUB_STEP_SUMMARY
+echo "# 多架构镜像（自动选择）" >> $GITHUB_STEP_SUMMARY
+echo "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest" >> $GITHUB_STEP_SUMMARY
+echo '```' >> $GITHUB_STEP_SUMMARY
+echo "" >> $GITHUB_STEP_SUMMARY
+echo "---" >> $GITHUB_STEP_SUMMARY
+echo "" >> $GITHUB_STEP_SUMMARY
+echo "## 🚀 快速部署" >> $GITHUB_STEP_SUMMARY
+echo "" >> $GITHUB_STEP_SUMMARY
+echo '```yaml' >> $GITHUB_STEP_SUMMARY
+echo "services:" >> $GITHUB_STEP_SUMMARY
+echo "  camera-monitor:" >> $GITHUB_STEP_SUMMARY
+echo "    image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest" >> $GITHUB_STEP_SUMMARY
+echo "    # 你的其他配置..." >> $GITHUB_STEP_SUMMARY
+echo '```' >> $GITHUB_STEP_SUMMARY
+
+- name: 显示完成信息
+run: |
+echo "╔════════════════════════════════════════════════════════╗"
+echo "║         🎉 Docker 镜像构建完成！                         ║"
+echo "╚════════════════════════════════════════════════════════╝"
+echo ""
+echo "📦 可用镜像:"
+echo "   ✅ ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:amd64-latest"
+echo "   ✅ ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:arm64-latest"
+echo "   ✅ ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+echo ""
+echo "📋 查看构建详情: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+echo ""

@@ -9,31 +9,26 @@ FROM python:3.11-slim-bookworm
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
 ENV PIP_NO_CACHE_DIR=1
-ENV PIP_TIMEOUT=300
 
-# 安装基础系统工具和 Python 依赖
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ffmpeg \
-    curl \
-    wget \
-    git \
-    ca-certificates \
-    tzdata \
-    libjpeg-dev \
-    zlib1g-dev \
-    libpng-dev \
-    libopenjp2-7 \
-    libtiff5 \
-    libwebp-dev \
-    && rm -rf /var/lib/apt/lists/* \
-    && useradd -m -s /bin/bash camera
+# 安装基础系统工具（分步安装以提高稳定性）
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ffmpeg curl wget git ca-certificates tzdata && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-# 安装 Python 依赖（使用宽松版本约束）
+# 安装 Pillow 所需的系统依赖
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends libjpeg-dev zlib1g-dev libpng-dev && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# 创建非 root 用户
+RUN useradd -m -s /bin/bash camera
+
+# 安装 Python 依赖
 COPY requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r /tmp/requirements.txt || \
-    pip install --no-cache-dir -r /tmp/requirements.txt --prefer-binary || \
-    pip install --no-cache-dir -r /tmp/requirements.txt --no-build-isolation
+    pip install --no-cache-dir -r /tmp/requirements.txt
 
 # 创建应用目录
 RUN mkdir -p /app/modules /app/templates /app/data/logs /app/data/screenshots /app/data/videos /app/data/lowfps /app/data/temp

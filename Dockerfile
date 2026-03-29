@@ -16,9 +16,9 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# 安装 Pillow 所需的系统依赖
+# 安装 Python 包编译所需的工具
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends libjpeg-dev zlib1g-dev libpng-dev && \
+    apt-get install -y --no-install-recommends build-essential && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 

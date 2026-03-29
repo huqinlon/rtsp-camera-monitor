@@ -31,15 +31,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # -----------------------------
 FROM base AS python-deps
 
-# 升级 pip
-# hadolint ignore=DL3013
-RUN pip3 install --no-cache-dir --break-system-packages --upgrade pip setuptools wheel
-
-# 安装 Python 依赖
+# 安装 Python 依赖 - 使用更兼容的方式
 COPY requirements.txt /tmp/requirements.txt
-# hadolint ignore=DL3013
-RUN pip3 install --no-cache-dir --break-system-packages --upgrade pip && \
-    pip3 install --no-cache-dir --break-system-packages -r /tmp/requirements.txt
+RUN pip3 install --no-cache-dir -r /tmp/requirements.txt || \
+    pip install --no-cache-dir -r /tmp/requirements.txt
 
 # -----------------------------
 # 最终镜像构建
